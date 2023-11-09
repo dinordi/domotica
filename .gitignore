@@ -1,7 +1,10 @@
 
 # Ignore everything
-*
-
+build/
+README.rst
+.vscode/
+.DS_Store
+sample.yaml
 # But not these files...
 !.gitignore
 !CMakeLists.txt
@@ -9,6 +12,6 @@
 
 
 # ...and not these folders...
-!src/
+!/src/
 !boards/
-!.vscode/
+
