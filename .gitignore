@@ -1,0 +1,14 @@
+
+# Ignore everything
+*
+
+# But not these files...
+!.gitignore
+!CMakeLists.txt
+!prj.conf
+
+
+# ...and not these folders...
+!src/
+!boards/
+!.vscode/
