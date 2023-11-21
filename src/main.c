@@ -380,10 +380,37 @@ static int gen_onoff_send(bool val)
 
 static void button_pressed(struct k_work *work)
 {
+	
+
 	printk("Button pressed!\n");
+	if(bt_mesh_app_key_exists)
+	{
+		if (bt_mesh_is_provisioned()) {
+			printk("Sending signal!\n");
+
+			(void)gen_onoff_send(!onoff.val);
+			return;
+		}
+	}
+
+	int err;
+	static uint8_t app_key[16];
+	err = bt_mesh_app_key_add(0, 0, app_key);
+	if (err) {
+		printk("App key add failed (err: %d)\n", err);
+		return;
+	}
+
+	/* Models must be bound to an app key to send and receive messages with
+	 * it:
+	 */
+	models[2].keys[0] = 0;
+	models[3].keys[0] = 0;
+
+	printk("Configured App key!\n");
+
 
 	// Send a toggle request to turn on the LED
-	gen_onoff_send(1);
 }
 
 

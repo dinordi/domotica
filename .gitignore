@@ -4,6 +4,7 @@ build/
 README.rst
 .vscode/
 .west/
+zephyr/
 .DS_Store
 sample.yaml
 # But not these files...
