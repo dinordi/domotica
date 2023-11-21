@@ -3,6 +3,7 @@
 build/
 README.rst
 .vscode/
+.west/
 .DS_Store
 sample.yaml
 # But not these files...
