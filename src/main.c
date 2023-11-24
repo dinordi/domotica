@@ -29,7 +29,7 @@
 #define LED_GPIO_DEV_NAME DT_LABEL(DT_ALIAS(led_gpio))
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 
-
+K_SEM_DEFINE(sem, 0, 1);
 // #define LED_PORT DT_GPIO_LABEL(DT_ALIAS(led0), gpios)
 // #define LED_PIN DT_GPIO_PIN(DT_ALIAS(led0), gpios)
 
@@ -232,7 +232,7 @@ static void gen_onoff_set(struct bt_mesh_model *model,
 
 	/* Add the OnOff state to the message */
 	net_buf_simple_add_u8(&msg, onoff_state);
-
+	printk("Sending back %d\n", onoff_state);
 	/* Send the response */
 	bt_mesh_model_send(model, ctx, &msg, NULL, NULL);
 }
@@ -264,6 +264,7 @@ static int gen_onoff_status(struct bt_mesh_model *model,
 
 	printk("OnOff status: %s\n", onoff_str[present]);
 	onoff.val = present;
+	// k_sem_give(&sem);
 	return 0;
 }
 
@@ -399,12 +400,16 @@ static void button_pressed(struct k_work *work)
 			bt_mesh_model_msg_init(&buf, OP_ONOFF_GET);
 
 			// gen_onoff_get(&models, &ctx, &buf);
+			
+			// onoff.val = net_buf_simple_pull_u8(&buf);
+			// k_sem_take(&sem, K_FOREVER);
+			(void)gen_onoff_send(!onoff.val);
+
 			int err = bt_mesh_model_send(&models[3], &ctx, &buf, NULL, NULL);
 			if (err) {
 				printk("Unable to send OnOff Get message (err %d)\n", err);
 			}
-			// onoff.val = net_buf_simple_pull_u8(&buf);
-			(void)gen_onoff_send(onoff.val);
+
 			return;
 		}
 	}
