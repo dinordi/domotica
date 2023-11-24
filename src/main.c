@@ -134,7 +134,7 @@ static int onoff_status_send(struct bt_mesh_model *model,
 	} else {
 		net_buf_simple_add_u8(&buf, onoff.val);
 	}
-
+	printk("Sending back %d\n", onoff.val);
 	return bt_mesh_model_send(model, ctx, &buf, NULL, NULL);
 }
 
@@ -163,6 +163,7 @@ static int gen_onoff_get(struct bt_mesh_model *model,
 			 struct bt_mesh_msg_ctx *ctx,
 			 struct net_buf_simple *buf)
 {
+	printk("Get received!\n");
 	onoff_status_send(model, ctx);
 	return 0;
 }
@@ -262,7 +263,7 @@ static int gen_onoff_status(struct bt_mesh_model *model,
 	}
 
 	printk("OnOff status: %s\n", onoff_str[present]);
-
+	onoff.val = present;
 	return 0;
 }
 
@@ -388,7 +389,22 @@ static void button_pressed(struct k_work *work)
 		if (bt_mesh_is_provisioned()) {
 			printk("Sending signal!\n");
 
-			(void)gen_onoff_send(!onoff.val);
+			struct bt_mesh_msg_ctx ctx = {
+				.app_idx = models[3].keys[0], /* Use the bound key */
+				.addr = BT_MESH_ADDR_ALL_NODES,
+				.send_ttl = BT_MESH_TTL_DEFAULT,
+			};	
+			// struct net_buf_simple buf;
+			BT_MESH_MODEL_BUF_DEFINE(buf, OP_ONOFF_GET, 2);
+			bt_mesh_model_msg_init(&buf, OP_ONOFF_GET);
+
+			// gen_onoff_get(&models, &ctx, &buf);
+			int err = bt_mesh_model_send(&models[3], &ctx, &buf, NULL, NULL);
+			if (err) {
+				printk("Unable to send OnOff Get message (err %d)\n", err);
+			}
+			// onoff.val = net_buf_simple_pull_u8(&buf);
+			(void)gen_onoff_send(onoff.val);
 			return;
 		}
 	}

@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "domotica",
+			"path": "."
+		},
+		{
+			"name": "zephyr",
+			"path": "../../.Trash/zephyr"
+		}
+	],
+	"settings": {}
+}
