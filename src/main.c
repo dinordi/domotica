@@ -25,6 +25,8 @@
 #define OP_ONOFF_SET_UNACK BT_MESH_MODEL_OP_2(0x82, 0x03)
 #define OP_ONOFF_STATUS    BT_MESH_MODEL_OP_2(0x82, 0x04)
 
+BT_MESH_MODEL_PUB_DEFINE(gen_onoff_pub_cli, NULL, 2 + 2);
+
 #define LED0_NODE DT_ALIAS(led0)
 #define LED_GPIO_DEV_NAME DT_LABEL(DT_ALIAS(led_gpio))
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
@@ -279,8 +281,8 @@ static struct bt_mesh_model models[] = {
 	BT_MESH_MODEL_HEALTH_SRV(&health_srv, &health_pub),
 	BT_MESH_MODEL(BT_MESH_MODEL_ID_GEN_ONOFF_SRV, gen_onoff_srv_op, NULL,
 		      NULL),
-	BT_MESH_MODEL(BT_MESH_MODEL_ID_GEN_ONOFF_CLI, gen_onoff_cli_op, NULL,
-		      NULL),
+	BT_MESH_MODEL(BT_MESH_MODEL_ID_GEN_ONOFF_CLI, gen_onoff_cli_op, &gen_onoff_pub_cli,
+		      &onoff.val),
 };
 
 static struct bt_mesh_elem elements[] = {
@@ -382,8 +384,6 @@ static int gen_onoff_send(bool val)
 
 static void button_pressed(struct k_work *work)
 {
-	
-
 	printk("Button pressed!\n");
 	if(bt_mesh_app_key_exists)
 	{
@@ -399,10 +399,6 @@ static void button_pressed(struct k_work *work)
 			BT_MESH_MODEL_BUF_DEFINE(buf, OP_ONOFF_GET, 2);
 			bt_mesh_model_msg_init(&buf, OP_ONOFF_GET);
 
-			// gen_onoff_get(&models, &ctx, &buf);
-			
-			// onoff.val = net_buf_simple_pull_u8(&buf);
-			// k_sem_take(&sem, K_FOREVER);
 			(void)gen_onoff_send(!onoff.val);
 
 			int err = bt_mesh_model_send(&models[3], &ctx, &buf, NULL, NULL);
