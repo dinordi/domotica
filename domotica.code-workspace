@@ -9,5 +9,10 @@
 			"path": "../../.Trash/zephyr"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"bluetooth.h": "c",
+			"*.inc": "c"
+		}
+	}
 }
