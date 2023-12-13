@@ -276,9 +276,9 @@ static int gen_onoff_status(struct bt_mesh_model *model,
 	onoff.val = present;
 	if(button_pressed_flag)
 	{
+		button_pressed_flag = false;
 		printk("Button pressed\n");
 		(void)gen_onoff_send(!onoff.val);
-		button_pressed_flag = false;
 	}
 
 	return 0;
@@ -299,7 +299,6 @@ static struct bt_mesh_model models[] = {
 		      NULL),
 	BT_MESH_MODEL(BT_MESH_MODEL_ID_GEN_ONOFF_CLI, gen_onoff_cli_op, &gen_onoff_pub_cli,
 		      &onoff),
-	// BT_MESH_MODEL_CFG_CLI(&cfg_cli), 
 };
 
 static struct bt_mesh_elem elements[] = {
@@ -383,44 +382,16 @@ void sub_add_status_cb(uint8_t status, uint16_t net_idx, uint16_t addr, uint16_t
 
 
 void subscribe_to_group(uint16_t group_addr, uint16_t target_node) {
+
 	uint16_t unicast_addr = bt_mesh_primary_addr();
-
-
-	// uint16_t element_addr = bt_mesh_primary_addr();
     uint16_t model_id = BT_MESH_MODEL_ID_GEN_ONOFF_CLI;
-    // uint16_t app_idx = models[3].keys[0]; //client
-	// // uint16_t net_idx = 
-
-
-    // // uint16_t net_idx = bt_mesh_primary_addr();
-    // uint16_t app_idx2 = models[2].keys[0]; //server
-
-    // // uint16_t app_idx = 
-
-	// uint16_t groupaddr = models[3].groups[0]; //client
-	// uint16_t groupaddr2 = models[2].groups[0]; //server 1
-	// uint16_t groupaddr3 = models[2].groups[1]; //server 2
-
-
-	// printk("Unicast address: %04x\n", unicast_addr);
-	// printk("Model ID: %04x\n", model_id);
-	// printk("AppKey Client: %04x\n", app_idx);
-	// printk("AppKey Server: %04x\n", app_idx2);
-	// printk("Group address client: %04x\n", groupaddr);
-	// printk("Group address server 1: %04x\n", groupaddr2);
-	// printk("Group address server 2: %04x\n", groupaddr3);
-	// printk("NetKey: %04x\n", net_idx);
-	// printk("Target address (self-typed): %04x\n", target_node);
-
-	// bt_mesh_cfg_mod_sub_add()
-										//Net_index, target_node, element_addr, group_addr, model_id, status_cb
+    
+									//Net_index, target_node, element_addr, group_addr, model_id, status_cb
     int err = bt_mesh_cfg_cli_mod_sub_add(0, 0x001D, 0x001D, 0xC001, 0x1001, NULL);
     if (err) {
         printk("Error adding subscription (err %d)\n", err);
     }
 
-
-	// uint16_t group_addr = 0xC005; // replace with your group address
 }
 
 void unsubscribe_from_group(uint16_t group_addr, uint16_t target_node) {
