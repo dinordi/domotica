@@ -7,6 +7,7 @@ README.rst
 zephyr/
 .DS_Store
 sample.yaml
+build-DomoticaSerial-Qt_6_5_3_for_macOS-Debug/
 # But not these files...
 !.gitignore
 !CMakeLists.txt
