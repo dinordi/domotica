@@ -115,6 +115,7 @@ int board_init(struct k_work *button_pressed)
 void board_led_set(bool val)
 {
 #if DT_NODE_EXISTS(LED0)
+	printk("Bomborasclart\n");
 	gpio_pin_set(led_dev, LED0_PIN, val);
 #endif
 }

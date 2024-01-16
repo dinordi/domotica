@@ -255,7 +255,6 @@ static const struct bt_mesh_model_op gen_onoff_srv_op[] = {
 };
 
 /* Generic OnOff Client */
-
 static int gen_onoff_status(struct bt_mesh_model *model,
 			    struct bt_mesh_msg_ctx *ctx,
 			    struct net_buf_simple *buf)
@@ -272,14 +271,17 @@ static int gen_onoff_status(struct bt_mesh_model *model,
 		return 0;
 	}
 
-	printk("OnOff status: %s\n", onoff_str[present]);
-	onoff.val = present;
+	printk("gen_onoff_status: %s\n", onoff_str[present]);
+	
 	if(button_pressed_flag)
 	{
+		onoff.val = present;
+
 		button_pressed_flag = false;
 		printk("Button pressed\n");
 		(void)gen_onoff_send(!onoff.val);
 	}
+	
 
 	return 0;
 }
@@ -364,7 +366,7 @@ static int gen_onoff_send(bool val)
 	net_buf_simple_add_u8(&buf, val);
 	net_buf_simple_add_u8(&buf, tid++);
 
-	printk("Sending OnOff Set: %s\nTo address: %d\n", onoff_str[val], models[3].groups[0]);
+	printk("Sending OnOff Set: %s To address: %d\n", onoff_str[val], models[3].groups[0]);
 
 	return bt_mesh_model_send(&models[3], &ctx, &buf, NULL, NULL);
 }
@@ -406,6 +408,7 @@ void unsubscribe_from_group(uint16_t group_addr, uint16_t target_node) {
     }
 }
 
+static bool light = false;
 static void button_pressed(struct k_work *work)
 {
 	if (bt_mesh_is_provisioned()) {
@@ -426,6 +429,9 @@ static void button_pressed(struct k_work *work)
 		}
 		printk("sent onoff get to address: %d\n", ctx.addr);
 		button_pressed_flag = true;
+		// light = !light;
+		// gen_onoff_send(light);
+
 		return;
 	}
 
