@@ -18,3 +18,5 @@ int board_init(struct k_work *button_work);
 void board_led_set(bool val);
 
 void printbombo();
+
+// static int led_init(void);

@@ -13,6 +13,8 @@
 #include <zephyr/bluetooth/mesh/cfg_cli.h> //For adding subscribtions
 #include <zephyr/bluetooth/mesh/cfg_srv.h> //For adding subscribtions
 
+#include <zephyr/drivers/uart.h>
+
 #include "/Users/dinordi/zephyrproject/zephyr/include/zephyr/bluetooth/mesh/cfg_cli.h"
 
 #include "board.h"
@@ -50,6 +52,67 @@ K_SEM_DEFINE(sem_node_added, 0, 1);
 #if DT_NODE_HAS_STATUS(SW0_NODE, okay)
 K_SEM_DEFINE(sem_button_pressed, 0, 1);
 #endif
+
+
+extern const struct device *const uart_dev;
+
+#define MSG_SIZE 32
+int toggle = 0;
+/* queue to store up to 10 messages (aligned to 4-byte boundary) */
+K_MSGQ_DEFINE(uart_msgq, MSG_SIZE, 10, 4);
+
+/* receive buffer used in UART ISR callback */
+static char rx_buf[MSG_SIZE];
+static int rx_buf_pos;
+char message_received[32];
+
+void serial_cb(const struct device *dev, void *user_data)
+{
+    uint8_t c;
+ 
+    if (!uart_irq_update(uart_dev)) {
+        return;
+    }
+ 
+    if (!uart_irq_rx_ready(uart_dev)) {
+        return;
+    }
+ 
+    /* read until FIFO empty */
+    while (uart_fifo_read(uart_dev, &c, 1) == 1) {
+        if ((c == '\n' || c == '\r') && rx_buf_pos > 0) {
+            /* terminate string */
+            rx_buf[rx_buf_pos] = '\0';
+ 
+            /* if queue is full, message is silently dropped */
+            k_msgq_put(&uart_msgq, &rx_buf, K_NO_WAIT);
+ 
+            /* reset the buffer (it was copied to the msgq) */
+            rx_buf_pos = 0;
+        } else if (rx_buf_pos < (sizeof(rx_buf) - 1)) {
+            rx_buf[rx_buf_pos++] = c;
+        }
+        /* else: characters beyond buffer size are dropped */
+    }
+
+	// char tx_buf[32];
+	// 	while (k_msgq_get(&uart_msgq, &tx_buf, K_MSEC(100)) == 0) {
+	
+	// 		printk("buffer: %s", tx_buf);
+	// 		if(strcmp(tx_buf, "BTN") == 0)
+	// 		{
+	// 			toggleLed();
+	// 			toggleLocalLED(1);
+	// 		}
+	// 		// if(strcmp(tx_buf, "BTN") == 0)
+	// 		// {
+	// 		// 	toggleLed();
+	// 		// }
+	// 	}
+}
+
+
+
 
 static struct bt_mesh_cfg_cli cfg_cli = {
 };
@@ -251,16 +314,42 @@ static void gen_onoff_set(struct bt_mesh_model *model,
         struct bt_mesh_msg_ctx *ctx,
         struct net_buf_simple *buf)
 {
-    uint8_t onoff_state = net_buf_simple_pull_u8(buf);
+    // uint8_t onoff_state = net_buf_simple_pull_u8(buf);
 
-	/* Toggle the LED based on the onoff_state */
-	if (onoff_state) {
-		gpio_pin_set_dt(&led, 1);
-		printk("LED ON\n");
-	} else {
-		gpio_pin_set_dt(&led, 0);
-		printk("LED OFF\n");
-	}
+	// /* Toggle the LED based on the onoff_state */
+	// if (onoff_state) {
+	// 	gpio_pin_set_dt(&led, 1);
+	// 	printk("LED ON\n");
+	// } else {
+	// 	gpio_pin_set_dt(&led, 0);
+	// 	printk("LED OFF\n");
+	// }
+
+	// /* Prepare a response */
+	// NET_BUF_SIMPLE_DEFINE(msg, 2 + 1 + 4);
+	// bt_mesh_model_msg_init(&msg, BT_MESH_MODEL_OP_2(0x82, 0x04));
+
+	// /* Add the OnOff state to the message */
+	// net_buf_simple_add_u8(&msg, onoff_state);
+
+	// /* Send the response */
+	// bt_mesh_model_send(model, ctx, &msg, NULL, NULL);
+	uint8_t onoff_state = net_buf_simple_pull_u8(buf);
+
+	printk("Ledje toggle\n");
+	if(toggle == 0){
+        print_uart("3");
+        toggle = 1;
+        k_cycle_get_32();
+        return;
+    }
+    if(toggle == 1)
+    {
+        print_uart("4");
+        toggle = 0;   
+        k_cycle_get_32();
+        return;
+    }
 
 	/* Prepare a response */
 	NET_BUF_SIMPLE_DEFINE(msg, 2 + 1 + 4);
@@ -298,6 +387,7 @@ static int gen_onoff_status(struct bt_mesh_model *model,
 
 		button_pressed_flag = false;
 		printk("Button pressed\n");
+		// toggleLocalLED(1);
 		(void)gen_onoff_send(!onoff.val);
 	}
 	
@@ -371,6 +461,23 @@ static int gen_onoff_set_unack(struct bt_mesh_model *model,
 	printk("set: %s delay: %d ms time: %d ms\n", onoff_str[val], delay,
 	       trans);
 
+	// toggleLed();
+	printk("Ledje toggle\n");
+	if(toggle == 0){
+        print_uart("3");
+        toggle = 1;
+        k_cycle_get_32();
+        return;
+    }
+    if(toggle == 1)
+    {
+        print_uart("4");
+		
+        toggle = 0;   
+        k_cycle_get_32();
+        return;
+    }
+
 	onoff.tid = tid;
 	onoff.src = ctx->addr;
 	onoff.val = val;
@@ -430,8 +537,59 @@ void print_all_node_addresses(void)
     bt_mesh_cdb_node_foreach(print_node_addr, NULL);
 }
 
+static uint16_t get_model_subscriptions(uint16_t addr, uint16_t elem_addr, uint16_t mod_id)
+{
+	uint16_t net_idx = 0; /* Network index */
+	uint8_t status; /* Status of the operation */
+	uint16_t subs[8]; /* Array to hold the subscription addresses */
+	size_t subs_count; /* Number of subscription addresses */
+	int err;
 
-static void print_model_subscriptions(uint16_t addr, uint16_t elem_addr, uint16_t mod_id, const char *model_name)
+	/* Get the subscription list for the model */
+	err = bt_mesh_cfg_cli_mod_sub_get(net_idx, addr, elem_addr, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, &status, subs, &subs_count);
+	if (err || status) {
+		printk("Failed to get subscription list for model (err %d, status %d)\n", err, status);
+		return NULL;
+	}
+	if (subs_count == 0) {
+		printk("No subscriptions for model\n");
+		return NULL;
+	}
+	printk("Model subscribed to addresses:\n");
+	for (size_t i = 0; i < subs_count; i++) {
+		printk("0x%04x\n", subs[i]);
+	}
+	return subs[0];
+}
+
+static void change_model_subscription(uint16_t addr, uint16_t elem_addr, uint16_t mod_id, uint16_t group_addr, bool add)
+{
+	uint16_t net_idx = 0; /* Network index */
+	uint8_t status; /* Status of the operation */
+	int err;
+
+	if(add)
+	{
+		/* Add a subscription to the group address for the Generic OnOff Server model */
+		err = bt_mesh_cfg_cli_mod_sub_add(net_idx, addr, elem_addr, group_addr, mod_id, &status);
+		if (err || status) {
+			printk("Failed to add subscription for Server model (err %d, status %d)\n", err, status);
+			return;
+		}
+	}
+	else
+	{
+		/* Remove a subscription to the group address for the Generic OnOff Server model */
+		err = bt_mesh_cfg_cli_mod_sub_del(net_idx, addr, elem_addr, group_addr, mod_id, &status);
+		if (err || status) {
+			printk("Failed to remove subscription for Server model (err %d, status %d)\n", err, status);
+			return;
+		}
+	}
+}
+
+
+static uint16_t print_model_subscriptions(uint16_t addr, uint16_t elem_addr, uint16_t mod_id, const char *model_name)
 {
     uint16_t net_idx = 0; /* Network index */
     uint8_t status; /* Status of the operation */
@@ -453,24 +611,27 @@ static void print_model_subscriptions(uint16_t addr, uint16_t elem_addr, uint16_
     for (size_t i = 0; i < subs_count; i++) {
         printk("%s model subscribed to address: 0x%04x\n", model_name, subs[i]);
     }
+	return subs[0];
 }
 
-void print_all_subscriptions(void)
+void print_all_subscriptions(uint16_t address)
 {
 	uint16_t primary_addr = bt_mesh_primary_addr();
 	uint16_t elem_addr;
 	uint16_t elem_index = 0; /* Index of the element */
 
 	printk("self_addr: 0x%04x\n", self_addr);
-	struct bt_mesh_elem *elem = bt_mesh_elem_find(0x0001);
-	if (!elem) {
-		printk("Element not found\n");
-		return;
-	}
+	// struct bt_mesh_elem *elem = bt_mesh_elem_find(address);
+	// if (!elem) {
+	// 	printk("Element not found\n");
+	// 	return;
+	// }
 	elem_addr = primary_addr + elem_index;
-
-	print_model_subscriptions(0x0001, 0x0001, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, "Generic OnOff Server");
-	print_model_subscriptions(0x0001, 0x0001, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, "Generic OnOff Client");
+	uint16_t sub;
+	sub = print_model_subscriptions(address, address, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, "Generic OnOff Server");
+	printk("sub: 0x%04x\n", sub);
+	sub = print_model_subscriptions(address, address, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, "Generic OnOff Client");
+	printk("sub: 0x%04x\n", sub);
 }
 static void configure_node(struct bt_mesh_cdb_node *node)
 {
@@ -715,6 +876,41 @@ static void onoff_timeout(struct k_work *work)
 
 	board_led_set(onoff.val);
 }
+
+void toggleLocalLED(int val)
+{
+	if(val == 0){
+		gpio_pin_set_dt(&led, 1);
+		return;
+	}
+	if(val == 1)
+	{
+		gpio_pin_set_dt(&led, 0);
+		return;
+	}
+}
+void toggleLed()
+{
+	struct bt_mesh_msg_ctx ctx = {
+		.app_idx = root_models[3].keys[0], /* Use the bound key */
+		// .addr = root_models[3].pub->addr, //Use the publication address
+		.addr = root_models[3].groups[0], //Use the subscription address
+		.send_ttl = BT_MESH_TTL_DEFAULT,
+	};
+
+	BT_MESH_MODEL_BUF_DEFINE(buf, OP_ONOFF_GET, 2);
+	bt_mesh_model_msg_init(&buf, OP_ONOFF_GET);
+
+	int err = bt_mesh_model_send(&root_models[3], &ctx, &buf, NULL, NULL);
+	if (err) {
+		printk("Unable to send OnOff Get message (err %d)\n", err);
+	}
+	// printk("sent onoff get to address: %d\n", ctx.addr);
+	button_pressed_flag = true;
+	return;	
+}
+
+
 int main(void)
 {
 	static struct k_work button_work;
@@ -723,12 +919,33 @@ int main(void)
 	int err;
 	
 	printk("Initializing...\n");
+	if (!device_is_ready(uart_dev)) {
+        printk("UART device not found!");
+        return 0;
+    }
+	/* configure interrupt and callback to receive data */
+    int ret = uart_irq_callback_user_data_set(uart_dev, serial_cb, NULL);
+ 
+    if (ret < 0) {
+        if (ret == -ENOTSUP) {
+            printk("Interrupt-driven UART API support not enabled\n");
+        } else if (ret == -ENOSYS) {
+            printk("UART device does not support interrupt-driven API\n");
+        } else {
+            printk("Error setting UART callback: %d\n", ret);
+        }
+        return 0;
+    }
+    uart_irq_rx_enable(uart_dev);
+	err = board_init(&button_work);
+	if (err) {
+		return err;
+	}
 
-	
-	int ret;
 	if (!gpio_is_ready_dt(&led)) {
 		return 0;
 	}
+
 	// int toggles = 100;
 	// for(int i = 0; i < toggles; i++)
 	// {
@@ -761,10 +978,48 @@ int main(void)
 		k_sem_reset(&sem_node_added);
 		bt_mesh_cdb_node_foreach(check_unconfigured, NULL);
 
-		printk("Waiting for unprovisioned beacon...\n");
-		print_all_node_addresses();
-		print_all_subscriptions();
-		err = k_sem_take(&sem_unprov_beacon, K_SECONDS(5));
+		// printk("Waiting for unprovisioned beacon...\n");
+		// print_all_node_addresses();
+		// print_all_subscriptions();
+
+		// toggleLed();
+		char tx_buf[32];
+		while (k_msgq_get(&uart_msgq, &tx_buf, K_MSEC(100)) == 0) {
+	
+			printk("buffer: %s", tx_buf);
+			if(strcmp(tx_buf, "BTN") == 0)
+			{
+				toggleLed();
+				toggleLocalLED(1);
+			}
+			uint16_t address;
+			uint16_t subIN;
+			if (sscanf(tx_buf, "BTN0x%xSUB0x%x", &address, &subIN) == 2) {
+			printk("Address: 0x%04x\n", address);
+			uint16_t sub = print_model_subscriptions(address, address, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, "Generic OnOff Server");
+			printk("Sub: %04x\n", sub);
+			change_model_subscription(address, address, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, sub, false);//Remove subscription
+			change_model_subscription(address, address, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, sub, false);
+
+			change_model_subscription(address, address, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, subIN, true);//Add subscription
+			change_model_subscription(address, address, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, subIN, true);
+
+			// Use the address...
+			}
+			if (sscanf(tx_buf, "RARA0x%04x", &address) == 1) {
+			printk("Address: 0x%04x\n", address);
+			print_all_subscriptions(address);
+			// Use the address...
+			}
+
+
+
+			// if(strcmp(tx_buf, "BTN") == 0)
+			// {
+			// 	toggleLed();
+			// }
+		}
+		err = k_sem_take(&sem_unprov_beacon, K_MSEC(100));
 		if (err == -EAGAIN) {
 			continue;
 		}

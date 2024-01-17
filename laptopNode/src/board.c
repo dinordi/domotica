@@ -2,6 +2,7 @@
 
 #include <zephyr/bluetooth/mesh.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/uart.h>
 #include "board.h"
 
 /* Locate led0 as alias or label by that name */
@@ -13,13 +14,13 @@
 #define LED0 DT_INVALID_NODE
 #endif
 
-/* Locate button0 as alias or label by sw0 or button0 */
-#if DT_NODE_EXISTS(DT_ALIAS(sw0))
-#define BUTTON0 DT_ALIAS(sw0)
+/* Locate button0 as alias or label by sw1 or button0 */
+#if DT_NODE_EXISTS(DT_ALIAS(sw1))
+#define BUTTON0 DT_ALIAS(sw1)
 #elif DT_NODE_EXISTS(DT_ALIAS(button0))
 #define BUTTON0 DT_ALIAS(button0)
-#elif DT_NODE_EXISTS(DT_NODELABEL(sw0))
-#define BUTTON0 DT_NODELABEL(sw0)
+#elif DT_NODE_EXISTS(DT_NODELABEL(sw1))
+#define BUTTON0 DT_NODELABEL(sw1)
 #elif DT_NODE_EXISTS(DT_NODELABEL(button0))
 #define BUTTON0 DT_NODELABEL(button0)
 #else
@@ -112,14 +113,34 @@ int board_init(struct k_work *button_pressed)
 	return button_init(button_pressed);
 }
 
+#define UART_DEVICE_NODE DT_CHOSEN(zephyr_shell_uart)
+const struct device *const uart_dev = DEVICE_DT_GET(UART_DEVICE_NODE); // This is your definition
+void print_uart(char *buf)
+{
+    int msg_len = strlen(buf);
+    for (int i = 0; i < msg_len; i++) {
+        uart_poll_out(uart_dev, buf[i]);
+    }
+}
 void board_led_set(bool val)
 {
 #if DT_NODE_EXISTS(LED0)
-	printk("Bomborasclart\n");
-	gpio_pin_set(led_dev, LED0_PIN, val);
+	// gpio_pin_set(led_dev, LED0_PIN, val); //Normal led
+
+	if(val){
+        print_uart("3");
+        k_cycle_get_32();
+        return;
+    }
+    else
+    {
+        print_uart("4");
+        k_cycle_get_32();
+        return;
+    }
+
 #endif
 }
-
 void board_output_number(bt_mesh_output_action_t action, uint32_t number)
 {
 }
