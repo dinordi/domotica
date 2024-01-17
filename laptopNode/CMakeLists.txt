@@ -7,10 +7,11 @@ set(BOARD nrf52833dk_nrf52833)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(mesh_provisioner)
 
-target_sources(app PRIVATE src/main.c)
 
 if (CONFIG_BUILD_WITH_TFM)
-  target_include_directories(app PRIVATE
-    $<TARGET_PROPERTY:tfm,TFM_BINARY_DIR>/install/interface/include
-  )
+target_include_directories(app PRIVATE
+$<TARGET_PROPERTY:tfm,TFM_BINARY_DIR>/install/interface/include
+)
 endif()
+FILE(GLOB app_sources src/*.c)
+target_sources(app PRIVATE ${app_sources})
