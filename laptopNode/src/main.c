@@ -435,16 +435,60 @@ static int gen_onoff_send_node(bool val, uint16_t node)
 
 	return bt_mesh_model_send(&root_models[4], &ctx, &buf, NULL, NULL);
 }
+static inline uint8_t model_time_encode(int32_t ms)
+{
+	if (ms == SYS_FOREVER_MS) {
+		return 0x3f;
+	}
 
+	for (int i = 0; i < ARRAY_SIZE(time_res); i++) {
+		if (ms >= BIT_MASK(6) * time_res[i]) {
+			continue;
+		}
 
+		uint8_t steps = DIV_ROUND_UP(ms, time_res[i]);
+
+		return steps | (i << 6);
+	}
+
+	return 0x3f;
+}
+static int onoff_status_send(struct bt_mesh_model *model,
+			     struct bt_mesh_msg_ctx *ctx)
+{
+	uint32_t remaining;
+
+	BT_MESH_MODEL_BUF_DEFINE(buf, OP_ONOFF_STATUS, 3);
+	bt_mesh_model_msg_init(&buf, OP_ONOFF_STATUS);
+
+	remaining = k_ticks_to_ms_floor32(
+			    k_work_delayable_remaining_get(&onoff.work)) +
+		    onoff.transition_time;
+
+	/* Check using remaining time instead of "work pending" to make the
+	 * onoff status send the right value on instant transitions. As the
+	 * work item is executed in a lower priority than the mesh message
+	 * handler, the work will be pending even on instant transitions.
+	 */
+	if (remaining) {
+		net_buf_simple_add_u8(&buf, !onoff.val);
+		net_buf_simple_add_u8(&buf, onoff.val);
+		net_buf_simple_add_u8(&buf, model_time_encode(remaining));
+	} else {
+		net_buf_simple_add_u8(&buf, onoff.val);
+	}
+
+	return bt_mesh_model_send(model, ctx, &buf, NULL, NULL);
+}
 static int gen_onoff_get(struct bt_mesh_model *model,
 			 struct bt_mesh_msg_ctx *ctx,
 			 struct net_buf_simple *buf)
 {
     // printk("Get received!\n");
-	// onoff_status_send(model, ctx);
+	onoff_status_send(model, ctx);
 	return 0;
 };
+
 static int gen_onoff_set_unack(struct bt_mesh_model *model,
 			       struct bt_mesh_msg_ctx *ctx,
 			       struct net_buf_simple *buf)
@@ -491,6 +535,7 @@ static int gen_onoff_set_unack(struct bt_mesh_model *model,
     //     k_cycle_get_32();
     //     return;
     // }
+	printk("Toggling LED to %s\n", onoff_str[val]);
 	toggleLocalLED(val);
 
 	onoff.tid = tid;
@@ -530,7 +575,7 @@ static void button_pressedLED()
 		if (err) {
 			printk("Unable to send OnOff Get message (err %d)\n", err);
 		}
-		printk("sent onoff get to address: %d\n", ctx.addr);
+		printk("sent onoff get to address: %04x\n", ctx.addr);
 		button_pressed_flag = true;
 		// light = !light;
 		// gen_onoff_send(light);
@@ -604,7 +649,31 @@ static bool get_led_status(uint16_t addr)
 	}
 	return ledStatus;
 }
-
+static void reset_all_groups()
+{
+	int err;
+	uint8_t status;
+	for(int G = 0; G <= 3; G++)
+	{
+		for(int L = 1; L <= 3; L++)
+		{	
+			uint16_t group_addr = 0xC000 + G;
+			/* Remove a subscription to the group address for the Generic OnOff Server model */
+			err = bt_mesh_cfg_cli_mod_sub_del(net_idx, L, L, group_addr, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, &status);
+			if (err || status) {
+				printk("Failed to remove subscription for Server model node 0x000%d, group 0xc00%d (err %d, status %d)\n", L, G, err, status);
+				return;
+			}
+			printk("Removed subscription for Server model node 0x000%d, group 0xc00%d\n", L, G);
+			err = bt_mesh_cfg_cli_mod_sub_del(net_idx, L, L, group_addr, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, &status);
+			if (err || status) {
+				printk("Failed to remove subscription for model (err %d, status %d)\n", err, status);
+				return;
+			}
+			printk("Removed subscription for Client model node 0x000%d, group 0xc00%d\n", L, G);
+		}
+	}
+}
 static void change_model_subscription(uint16_t addr, uint16_t elem_addr, uint16_t mod_id, uint16_t group_addr, bool add)
 {
 	uint16_t net_idx = 0; /* Network index */
@@ -1030,7 +1099,7 @@ int main(void)
 
 		// toggleLed();
 		char tx_buf[64];
-		while (k_msgq_get(&uart_msgq, &tx_buf, K_MSEC(100)) == 0) {
+		while (k_msgq_get(&uart_msgq, &tx_buf, K_MSEC(500)) == 0) {
 	
 			printk("buffer: %s\n", tx_buf);
 			uint8_t ledstatus;
@@ -1048,6 +1117,7 @@ int main(void)
 			uint16_t addressL;
 			uint16_t addressB;
 			uint16_t subIN;
+			uint16_t subRM;
 
 
 			// if (sscanf(tx_buf, "B%xL%xG%x", &addressB, &addressL, &subIN) == 3) {
@@ -1059,6 +1129,20 @@ int main(void)
 			// 	change_model_subscription(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, sub, false);//Remove subscription
 			// 	change_model_subscription(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, subIN, true);//Add subscription
 			// }
+			if (sscanf(tx_buf, "CB0x%xG0x%xGO0x%x", &addressB, &subIN, &subRM) == 3) {
+				// uint16_t sub = print_model_subscriptions(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, "Generic OnOff Client");
+				change_model_subscription(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, subRM, false);//Remove subscription
+				change_model_subscription(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, subIN, true);//Add subscription
+				printk("OK");
+
+			}
+			if (sscanf(tx_buf, "CB0x%xG0x%xGO0x%x", &addressB, &subIN, &subRM) == 3) {
+				// uint16_t sub = print_model_subscriptions(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, "Generic OnOff Client");
+				change_model_subscription(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, subRM, false);//Remove subscription
+				change_model_subscription(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_SRV, subIN, true);//Add subscription
+				printk("OK");
+
+			}
 			if (sscanf(tx_buf, "ADDB0x%xG0x%x", &addressB, &subIN) == 2) {
 				// uint16_t sub = print_model_subscriptions(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, "Generic OnOff Client");
 				// change_model_subscription(addressB, addressB, BT_MESH_MODEL_ID_GEN_ONOFF_CLI, sub, false);//Remove subscription
@@ -1126,6 +1210,10 @@ int main(void)
 			if (strcmp(tx_buf, "BUTTON") == 0)
 			{
 				button_pressedLED();
+			}
+			if (strcmp(tx_buf, "RESET") == 0)
+			{
+				reset_all_groups();
 			}
 		}
 		err = k_sem_take(&sem_unprov_beacon, K_MSEC(100));
