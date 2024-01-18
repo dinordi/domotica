@@ -222,8 +222,8 @@ static int gen_onoff_set_unack(struct bt_mesh_model *model,
 }
 
 static void gen_onoff_set(struct bt_mesh_model *model,
-						  struct bt_mesh_msg_ctx *ctx,
-						  struct net_buf_simple *buf)
+						struct bt_mesh_msg_ctx *ctx,
+						struct net_buf_simple *buf)
 {
 	uint8_t onoff_state = net_buf_simple_pull_u8(buf);
 
