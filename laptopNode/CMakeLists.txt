@@ -2,25 +2,16 @@
 
 cmake_minimum_required(VERSION 3.20.0)
 set(QEMU_EXTRA_FLAGS -s)
-
-# set (BOARD nrf52833dk_nrf52833)
-set (BOARD nrf52840dongle_nrf52840)
-
-
+set(BOARD nrf52833dk_nrf52833)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(mesh)
+project(mesh_provisioner)
 
-target_sources(app PRIVATE src/main.c)
-
-if (BOARD STREQUAL bbc_microbit)
-  target_sources(app PRIVATE src/microbit.c)
-else()
-  target_sources(app PRIVATE src/board.c)
-endif()
 
 if (CONFIG_BUILD_WITH_TFM)
-  target_include_directories(app PRIVATE
-    $<TARGET_PROPERTY:tfm,TFM_BINARY_DIR>/install/interface/include
-  )
+target_include_directories(app PRIVATE
+$<TARGET_PROPERTY:tfm,TFM_BINARY_DIR>/install/interface/include
+)
 endif()
+FILE(GLOB app_sources src/*.c)
+target_sources(app PRIVATE ${app_sources})

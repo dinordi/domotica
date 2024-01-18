@@ -222,8 +222,8 @@ static int gen_onoff_set_unack(struct bt_mesh_model *model,
 }
 
 static void gen_onoff_set(struct bt_mesh_model *model,
-						  struct bt_mesh_msg_ctx *ctx,
-						  struct net_buf_simple *buf)
+						struct bt_mesh_msg_ctx *ctx,
+						struct net_buf_simple *buf)
 {
 	uint8_t onoff_state = net_buf_simple_pull_u8(buf);
 
@@ -345,12 +345,24 @@ static const struct bt_mesh_prov prov = {
 	.reset = prov_reset,
 };
 
+static uint16_t getGroupAddr()
+{
+	if (models[3].groups[0] == 0)
+	{
+		return models[3].groups[1];
+	}
+	else
+	{
+		return models[3].groups[0];
+	}
+}
+
 /** Send an OnOff Set message from the Generic OnOff Client to all nodes. */
 static int gen_onoff_send(bool val)
 {
 	struct bt_mesh_msg_ctx ctx = {
 		.app_idx = models[3].keys[0], /* Use the bound key */
-		.addr = models[3].groups[0],
+		.addr = getGroupAddr(),
 		.send_ttl = BT_MESH_TTL_DEFAULT,
 	};
 	static uint8_t tid;
@@ -366,7 +378,7 @@ static int gen_onoff_send(bool val)
 	net_buf_simple_add_u8(&buf, val);
 	net_buf_simple_add_u8(&buf, tid++);
 
-	printk("Sending OnOff Set: %s To address: %d\n", onoff_str[val], models[3].groups[0]);
+	printk("Sending OnOff Set: %s To address: %d\n", onoff_str[val], getGroupAddr());
 
 	return bt_mesh_model_send(&models[3], &ctx, &buf, NULL, NULL);
 }
@@ -415,7 +427,7 @@ static void button_pressed(struct k_work *work)
 		struct bt_mesh_msg_ctx ctx = {
 			.app_idx = models[3].keys[0], /* Use the bound key */
 			// .addr = models[3].pub->addr, //Use the publication address
-			.addr = models[3].groups[0], //Use the subscription address
+			.addr = getGroupAddr(), //Use the subscription address
 			.send_ttl = BT_MESH_TTL_DEFAULT,
 		};
 		// subscribe_to_group(0xC004, 0x0018);

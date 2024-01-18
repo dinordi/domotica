@@ -1,12 +1,3 @@
-/ {
-    aliases {
-            led0 = &myled0;
-    };
-
-    leds {
-            compatible = "gpio-leds";
-            myled0: led_0 {
-                    gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
-            };
-    };
-};
+// &uart0 {
+//     current-speed = <230400>;
+// };
