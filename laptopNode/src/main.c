@@ -301,12 +301,13 @@ static void configure_self(struct bt_mesh_cdb_node *self)
 		printk("Failed to add subscription for Server model (err %d, status %d)\n", err, status);
 		return;
 	}
+	
 
 	/* Add a subscription to the group address for the Generic OnOff Client model */
 	mod_id = BT_MESH_MODEL_ID_GEN_ONOFF_CLI;
 	err = bt_mesh_cfg_cli_mod_sub_add(net_idx, self->addr, self->addr, 0xC000, mod_id, &status);
 	if (err || status) {
-		printk("Failed to add subscription for Client model (err %d, status %d)\n", err, status);
+		printk("Failed to add subscription for Server model (err %d, status %d)\n", err, status);
 		return;
 	}
 
@@ -317,42 +318,24 @@ static void gen_onoff_set(struct bt_mesh_model *model,
         struct bt_mesh_msg_ctx *ctx,
         struct net_buf_simple *buf)
 {
-    // uint8_t onoff_state = net_buf_simple_pull_u8(buf);
-
-	// /* Toggle the LED based on the onoff_state */
-	// if (onoff_state) {
-	// 	gpio_pin_set_dt(&led, 1);
-	// 	printk("LED ON\n");
-	// } else {
-	// 	gpio_pin_set_dt(&led, 0);
-	// 	printk("LED OFF\n");
-	// }
-
-	// /* Prepare a response */
-	// NET_BUF_SIMPLE_DEFINE(msg, 2 + 1 + 4);
-	// bt_mesh_model_msg_init(&msg, BT_MESH_MODEL_OP_2(0x82, 0x04));
-
-	// /* Add the OnOff state to the message */
-	// net_buf_simple_add_u8(&msg, onoff_state);
-
-	// /* Send the response */
-	// bt_mesh_model_send(model, ctx, &msg, NULL, NULL);
+  
 	uint8_t onoff_state = net_buf_simple_pull_u8(buf);
 
-	printk("Ledje toggle\n");
-	if(toggle == 0){
-        print_uart("3");
-        toggle = 1;
-        k_cycle_get_32();
-        return;
-    }
-    if(toggle == 1)
-    {
-        print_uart("4");
-        toggle = 0;   
-        k_cycle_get_32();
-        return;
-    }
+
+	// printk("Ledje toggle\n");
+	// if(toggle == 0){
+    //     print_uart("3");
+    //     toggle = 1;
+    //     k_cycle_get_32();
+    //     return;
+    // }
+    // if(toggle == 1)
+    // {
+    //     print_uart("4");
+    //     toggle = 0;   
+    //     k_cycle_get_32();
+    //     return;
+    // }
 
 	/* Prepare a response */
 	NET_BUF_SIMPLE_DEFINE(msg, 2 + 1 + 4);
@@ -458,7 +441,7 @@ static int gen_onoff_get(struct bt_mesh_model *model,
 			 struct bt_mesh_msg_ctx *ctx,
 			 struct net_buf_simple *buf)
 {
-    printk("Get received!\n");
+    // printk("Get received!\n");
 	// onoff_status_send(model, ctx);
 	return 0;
 };
@@ -489,25 +472,26 @@ static int gen_onoff_set_unack(struct bt_mesh_model *model,
 		return 0;
 	}
 
-	printk("set: %s delay: %d ms time: %d ms\n", onoff_str[val], delay,
-	       trans);
+	// printk("set: %s delay: %d ms time: %d ms\n", onoff_str[val], delay,
+	//        trans);
 
 	// toggleLed();
-	printk("Ledje toggle\n");
-	if(toggle == 0){
-        print_uart("3");
-        toggle = 1;
-        k_cycle_get_32();
-        return;
-    }
-    if(toggle == 1)
-    {
-        print_uart("4");
+	// printk("Ledje toggle\n");
+	// if(toggle == 0){
+    //     print_uart("3");
+    //     toggle = 1;
+    //     k_cycle_get_32();
+    //     return;
+    // }
+    // if(toggle == 1)
+    // {
+    //     print_uart("4");
 		
-        toggle = 0;   
-        k_cycle_get_32();
-        return;
-    }
+    //     toggle = 0;   
+    //     k_cycle_get_32();
+    //     return;
+    // }
+	toggleLocalLED(val);
 
 	onoff.tid = tid;
 	onoff.src = ctx->addr;
@@ -526,10 +510,10 @@ static int gen_onoff_set_unack(struct bt_mesh_model *model,
 
 
 
-static void button_pressedLED(struct k_work *work)
+static void button_pressedLED()
 {
-	printk("BOMBOCLART\n");
-	return;
+	// printk("BOMBOCLART\n");
+	// return;
 	if (bt_mesh_is_provisioned()) {
 		struct bt_mesh_msg_ctx ctx = {
 			.app_idx = root_models[4].keys[0], /* Use the bound key */
@@ -774,19 +758,31 @@ static void configure_node(struct bt_mesh_cdb_node *node)
 		uint16_t mod_id; /* Model identifier */
 		/* Add a subscription to the group address for the Generic OnOff Server model */
 		mod_id = BT_MESH_MODEL_ID_GEN_ONOFF_SRV;
+
 		err = bt_mesh_cfg_cli_mod_sub_add(net_idx, node->addr, elem_addr, 0xC000, mod_id, &status);
 		if (err || status) {
 			printk("Failed to add subscription for Server model (err %d, status %d)\n", err, status);
 			return;
 		}
 
+
 		/* Add a subscription to the group address for the Generic OnOff Client model */
 		mod_id = BT_MESH_MODEL_ID_GEN_ONOFF_CLI;
+		// err = bt_mesh_cfg_cli_mod_sub_add(net_idx, node->addr, elem_addr, 0xD000, mod_id, &status);
+		// if (err || status) {
+		// 	printk("Failed to add subscription for Server model (err %d, status %d)\n", err, status);
+		// 	return;
+		// }
 		err = bt_mesh_cfg_cli_mod_sub_add(net_idx, node->addr, elem_addr, 0xC000, mod_id, &status);
 		if (err || status) {
-			printk("Failed to add subscription for Client model (err %d, status %d)\n", err, status);
+			printk("Failed to add subscription for Server model (err %d, status %d)\n", err, status);
 			return;
 		}
+		// err = bt_mesh_cfg_cli_mod_sub_del(net_idx, node->addr, elem_addr, 0xD000, mod_id, &status);
+		// if (err || status) {
+		// 	printk("Failed to add subscription for Server model (err %d, status %d)\n", err, status);
+		// 	return;
+		// }
 
 
 		elem_addr++;
@@ -1043,7 +1039,7 @@ int main(void)
 			{
 				printk("S%dL%x\n", ledstatus, node_address);
 				gen_onoff_send_node(ledstatus, node_address);
-				toggleLocalLED(ledstatus);
+				// toggleLocalLED(ledstatus);
 			}
 
 			
@@ -1115,7 +1111,10 @@ int main(void)
 				{
 					print_uart("N%d_0x%04x", addresses[i]);// "N1_0x0001N20x0002N30x0003"
 				}
-				// print_uart();
+			}
+			if (strcmp(tx_buf, "BUTTON") == 0)
+			{
+				button_pressedLED();
 			}
 		}
 		err = k_sem_take(&sem_unprov_beacon, K_MSEC(100));
