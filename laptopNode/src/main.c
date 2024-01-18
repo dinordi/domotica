@@ -1092,15 +1092,26 @@ int main(void)
 			}
 			if (sscanf(tx_buf, "getLed0x%x", &addressNode) == 1)
 			{
-				bool stat = get_led_status(addressNode);
-				printk("Led status: %s\n", onoff_str[stat]);
-				if(stat)
+				bool stat;
+				if(addressNode == 0x0001)
 				{
-					print_uart("LEDSTAT1");
+					stat = onoff.val;
 				}
 				else
 				{
-					print_uart("LEDSTAT0");
+					stat = get_led_status(addressNode);
+				}
+				printk("Led status: %s\n", onoff_str[stat]);
+				char buffer[20];
+				if(stat)
+				{
+					sprintf(buffer, "LEDSTAT1A0x%04x", addressNode);
+					print_uart(buffer);
+				}
+				else
+				{
+					sprintf(buffer, "LEDSTAT0A0x%04x", addressNode);
+					print_uart(buffer);
 				}
 				k_cycle_get_32();
 			}
